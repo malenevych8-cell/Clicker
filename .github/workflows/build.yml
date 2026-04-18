@@ -7,9 +7,17 @@ jobs:
       - uses: actions/checkout@v3
       - name: Compile
         run: |
+          MAIN_FILE=$(find . -name "main.swift" | head -n 1)
+          PLIST_FILE=$(find . -name "Info.plist" | head -n 1)
+          
+          if [ -z "$MAIN_FILE" ] || [ -z "$PLIST_FILE" ]; then
+            echo "Error: Files not found!"
+            exit 1
+          fi
+
           mkdir -p ClickerApp.app
-          xcrun -sdk iphoneos swiftc main.swift -o ClickerApp.app/ClickerApp -target arm64-apple-ios14.0 -Xlinker -rpath -Xlinker /usr/lib/swift
-          cp Info.plist ClickerApp.app/Info.plist
+          xcrun -sdk iphoneos swiftc "$MAIN_FILE" -o ClickerApp.app/ClickerApp -target arm64-apple-ios14.0 -Xlinker -rpath -Xlinker /usr/lib/swift
+          cp "$PLIST_FILE" ClickerApp.app/Info.plist
           mkdir Payload
           cp -r ClickerApp.app Payload/
           zip -r Clicker.ipa Payload
