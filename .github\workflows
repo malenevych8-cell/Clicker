@@ -1,0 +1,20 @@
+name: Build IPA
+on: [push]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Compile
+        run: |
+          mkdir -p ClickerApp.app
+          xcrun -sdk iphoneos swiftc main.swift -o ClickerApp.app/ClickerApp -target arm64-apple-ios14.0
+          cp Info.plist ClickerApp.app/Info.plist
+          mkdir Payload
+          cp -r ClickerApp.app Payload/
+          zip -r Clicker.ipa Payload
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: Clicker-IPA
+          path: Clicker.ipa
