@@ -2,65 +2,78 @@ import UIKit
 import SpriteKit
 import AudioToolbox
 
-// --- НАЛАШТУВАННЯ СЦЕНИ (ФІЗИКА ТА КЛІКИ) ---
+// --- СЦЕНА (ФІЗИКА ТА ПАДІННЯ) ---
 class GameScene: SKScene {
     var score = 0
     let scoreLabel = SKLabelNode(fontNamed: "Arial-BoldMT")
     
+    // Категорії для фізики
+    struct PhysicsCategory {
+        static let button: UInt32 = 0x1 << 0
+        static let world: UInt32 = 0x1 << 1
+    }
+
     override func didMove(to view: SKView) {
-        // Чорний фон для OLED екрану iPhone 14
+        // Чорний фон
         backgroundColor = .black
         
-        // Гравітація вниз
-        physicsWorld.gravity = CGVector(dx: 0, dy: -9.8)
-        
-        // Межі екрану (фізичні стіни та підлога)
+        // Створюємо фізичні межі *всього* екрана, а не тільки верху!
         let borderBody = SKPhysicsBody(edgeLoopFrom: self.frame)
+        borderBody.categoryBitMask = PhysicsCategory.world
         self.physicsBody = borderBody
         
-        // Рахунок (Score)
+        // Сильна гравітація вниз
+        physicsWorld.gravity = CGVector(dx: 0, dy: -15.0)
+        
+        // Напис рахунку
         scoreLabel.text = "Score: 0"
-        scoreLabel.fontSize = 42
+        scoreLabel.fontSize = 45
         scoreLabel.fontColor = .cyan
-        scoreLabel.position = CGPoint(x: frame.midX, y: frame.height - 120)
+        // Позиція рахунку зверху, під "острівцем"
+        scoreLabel.position = CGPoint(x: frame.midX, y: frame.height - 150)
         scoreLabel.zPosition = 10
         addChild(scoreLabel)
         
-        // Поява золотих кнопок автоматично
-        let spawn = SKAction.run { [weak self] in self?.createGoldenButton() }
-        let wait = SKAction.wait(forDuration: 1.0) // Кнопка кожні 1 сек
-        run(SKAction.repeatForever(SKAction.sequence([spawn, wait])))
+        // Створюємо кнопки
+        let wait = SKAction.wait(forDuration: 1.0)
+        let spawn = SKAction.run { [weak self] in self?.spawnButton() }
+        run(SKAction.repeatForever(SKAction.sequence([wait, spawn])))
     }
     
-    func createGoldenButton() {
-        let size = CGSize(width: 70, height: 70)
+    func spawnButton() {
+        // Випадкова позиція по ширині
+        let randomX = CGFloat.random(in: 50...(frame.width - 50))
+        let buttonSize = CGSize(width: 80, height: 80)
         
-        // Дизайн золотої кнопки-монети
-        let button = SKShapeNode(circleOfRadius: 35)
-        button.fillColor = .systemYellow // Золотий колір
+        // Вигляд монети
+        let button = SKShapeNode(circleOfRadius: 40)
+        button.fillColor = .systemYellow
         button.strokeColor = .white
         button.lineWidth = 3
-        button.position = CGPoint(x: CGFloat.random(in: 50...frame.width-50), y: frame.height + 50)
-        button.name = "target"
+        button.position = CGPoint(x: randomX, y: frame.height + 100)
+        button.name = "coin"
         
-        // Текст TAP! всередині кнопки
+        // Текст TAP!
         let label = SKLabelNode(text: "TAP!")
-        label.fontSize = 18
+        label.fontSize = 20
         label.fontName = "Arial-BoldMT"
         label.fontColor = .black
         label.verticalAlignmentMode = .center
         button.addChild(label)
         
-        // Фізика: оберт, відскок, гравітація
-        let body = SKPhysicsBody(circleOfRadius: 35)
+        // Фізичне тіло
+        let body = SKPhysicsBody(circleOfRadius: 40)
         body.affectedByGravity = true
         body.allowsRotation = true
-        body.restitution = 0.6 // Добре відскакує від підлоги
-        body.friction = 0.4
+        body.restitution = 0.8 // Сильний відскок
+        body.friction = 0.3
+        
+        body.categoryBitMask = PhysicsCategory.button
+        body.collisionBitMask = PhysicsCategory.world | PhysicsCategory.button
         button.physicsBody = body
         
-        // Випадковий імпульс обертання при появі
-        body.applyAngularImpulse(CGFloat.random(in: -0.3...0.3))
+        // Випадкове закручування
+        body.applyAngularImpulse(CGFloat.random(in: -0.5...0.5))
         
         addChild(button)
     }
@@ -70,39 +83,56 @@ class GameScene: SKScene {
         let location = touch.location(in: self)
         let tappedNodes = nodes(at: location)
         
-        for node in tappedNodes where node.name == "target" {
-            // Клік!
+        for node in tappedNodes where node.name == "coin" {
+            // Клік по монеті!
             score += 1
             scoreLabel.text = "Score: \(score)"
             
-            // Чітка вібрація (Haptic Feedback)
+            // Вібрація
             AudioServicesPlaySystemSound(1519)
             
-            // Ефект "вибуху" при кліку (збільшення і зникнення)
-            node.name = "" // Прибираємо ім'я, щоб не можна було клікнути двічі
-            let scaleUp = SKAction.scale(to: 1.5, duration: 0.1)
-            let fadeOut = SKAction.fadeOut(withDuration: 0.1)
-            let group = SKAction.group([scaleUp, fadeOut])
-            let remove = SKAction.removeFromParent()
-            node.run(SKAction.sequence([group, remove]))
+            // Ефект зникнення
+            node.name = "" // Прибираємо ім'я
+            node.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.scale(to: 1.6, duration: 0.1),
+                    SKAction.fadeOut(withDuration: 0.1)
+                ]),
+                SKAction.removeFromParent()
+            ]))
         }
     }
 }
 
-// --- КОНТРОЛЕР ---
+// --- КОНТРОЛЕР (ВИПРАВЛЕННЯ ЧОРНОГО ЕКРАНА І МАСШТАБУ) ---
 class GameViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Створюємо SKView на весь екран
         let skView = SKView(frame: view.frame)
         view.addSubview(skView)
-        // skView.showsPhysics = true // Увімкни, щоб бачити фізичні межі (для відладки)
-        let scene = GameScene(size: view.frame.size)
-        scene.scaleMode = .aspectFill
+        
+        // Відладка (можна вимкнути)
+        // skView.showsFPS = true
+        // skView.showsNodeCount = true
+        // skView.showsPhysics = true // Увімкни, щоб побачити зелені межі фізики
+        
+        // Створюємо сцену з точним розміром екрана
+        let scene = GameScene(size: skView.bounds.size)
+        
+        // !!! КРИТИЧНЕ ВИПРАВЛЕННЯ !!!
+        // resizeFill змушує сцену розтягнутися на весь екран iPhone
+        scene.scaleMode = .resizeFill
+        
         skView.presentScene(scene)
     }
+    
+    // Ховаємо статус-бар для чистоти
+    override var prefersStatusBarHidden: Bool { return true }
 }
 
-// --- ДЕЛЕГАТ ДОДАТКА ---
+// --- ДЕЛЕГАТ ---
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -113,5 +143,5 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
-// --- ЗАПУСК (Для main.swift) ---
+// --- ЗАПУСК ---
 UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
