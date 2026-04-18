@@ -1,34 +1,63 @@
-name: Build Clicker IPA
+name: Build Physics Clicker iOS 26
 on: [push]
 
 jobs:
   build:
-    # Використовуємо мак, бо тільки він вміє робити .ipa
     runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Xcode
-        # Встановлюємо версію Xcode, яка знає про iOS 26.3.1
-        run: sudo xcode-select -s /Applications/Xcode_15.2.app
-
-      - name: Build App Assets
+      - name: Compile Physics Engine
         run: |
-          mkdir -p build/Clicker.xcarchive
-          # Компіляція Swift коду в додаток
-          swiftc ViewController.swift AppDelegate.swift -o ClickerApp -target arm64-apple-ios17.0 -sdk $(xcrun --show-sdk-path --sdk iphoneos)
+          # Компілюємо main.swift з націленістю на iOS 26
+          xcrun -sdk iphoneos swiftc main.swift \
+          -target arm64-apple-ios26.0 \
+          -o ClickerApp \
+          -Xlinker -rpath -Xlinker /usr/lib/swift \
+          -Xlinker -rpath -Xlinker @executable_path/Frameworks
 
-      - name: Create Payload and IPA
+      - name: Create App Bundle Structure
         run: |
           mkdir -p Payload/Clicker.app
-          mv ClickerApp Payload/Clicker.app/
-          # Пакуємо в .ipa архів
-          zip -r Clicker.ipa Payload
+          mv ClickerApp Payload/Clicker.app/Clicker
+          
+          # Створюємо Info.plist
+          cat <<EOF > Payload/Clicker.app/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>Clicker</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.svzt.physics.clicker</string>
+              <key>CFBundleName</key>
+              <string>PhysicsClicker</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>26.3.1</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>MinimumOSVersion</key>
+              <string>17.0</string>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+              </array>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Package to IPA
+        run: zip -r Clicker.ipa Payload
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Clicker_Build_iOS_26
+          name: PhysicsClicker_v26_Final
           path: Clicker.ipa
