@@ -1,28 +1,34 @@
-name: Build IPA
+name: Build Clicker IPA
 on: [push]
+
 jobs:
   build:
+    # Використовуємо мак, бо тільки він вміє робити .ipa
     runs-on: macos-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      - name: Compile
-        run: |
-          MAIN_FILE=$(find . -name "main.swift" | head -n 1)
-          PLIST_FILE=$(find . -name "Info.plist" | head -n 1)
-          
-          if [ -z "$MAIN_FILE" ] || [ -z "$PLIST_FILE" ]; then
-            echo "Error: Files not found!"
-            exit 1
-          fi
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-          mkdir -p ClickerApp.app
-          xcrun -sdk iphoneos swiftc "$MAIN_FILE" -o ClickerApp.app/ClickerApp -target arm64-apple-ios14.0 -Xlinker -rpath -Xlinker /usr/lib/swift
-          cp "$PLIST_FILE" ClickerApp.app/Info.plist
-          mkdir Payload
-          cp -r ClickerApp.app Payload/
+      - name: Set up Xcode
+        # Встановлюємо версію Xcode, яка знає про iOS 26.3.1
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build App Assets
+        run: |
+          mkdir -p build/Clicker.xcarchive
+          # Компіляція Swift коду в додаток
+          swiftc ViewController.swift AppDelegate.swift -o ClickerApp -target arm64-apple-ios17.0 -sdk $(xcrun --show-sdk-path --sdk iphoneos)
+
+      - name: Create Payload and IPA
+        run: |
+          mkdir -p Payload/Clicker.app
+          mv ClickerApp Payload/Clicker.app/
+          # Пакуємо в .ipa архів
           zip -r Clicker.ipa Payload
-      - name: Upload
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Clicker-IPA
+          name: Clicker_Build_iOS_26
           path: Clicker.ipa
