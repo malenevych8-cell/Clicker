@@ -12,14 +12,12 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         
-        // Відображення рахунку
         scoreLabel.frame = CGRect(x: 0, y: 150, width: view.frame.width, height: 60)
         scoreLabel.textAlignment = .center
         scoreLabel.font = .systemFont(ofSize: 50, weight: .bold)
         scoreLabel.text = "\(score)"
         view.addSubview(scoreLabel)
         
-        // Головна кнопка кліку
         let clickButton = UIButton(frame: CGRect(x: (view.frame.width - 200)/2, y: 300, width: 200, height: 200))
         clickButton.backgroundColor = .systemBlue
         clickButton.setTitle("TAP!", for: .normal)
@@ -28,7 +26,6 @@ class ViewController: UIViewController {
         clickButton.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
         view.addSubview(clickButton)
         
-        // Кнопка покращення
         upgradeButton.frame = CGRect(x: 50, y: 550, width: view.frame.width - 100, height: 60)
         upgradeButton.backgroundColor = .systemGreen
         upgradeButton.setTitleColor(.white, for: .normal)
@@ -47,7 +44,6 @@ class ViewController: UIViewController {
         if score >= upgradeCost {
             score -= upgradeCost
             clickPower += 1
-            // Збільшуємо ціну у 3 рази
             upgradeCost *= 3 
             scoreLabel.text = "\(score)"
             upgradeButton.setTitle("Upgrade (+1) - Cost: \(upgradeCost)", for: .normal)
