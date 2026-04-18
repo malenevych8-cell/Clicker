@@ -1,56 +1,89 @@
 import UIKit
+import SpriteKit
+import AudioToolbox
 
-class ViewController: UIViewController {
+// --- НАЛАШТУВАННЯ СЦЕНИ (ФІЗИКА ТА КЛІКИ) ---
+class GameScene: SKScene {
     var score = 0
-    var clickPower = 1
-    var upgradeCost = 10
+    let scoreLabel = SKLabelNode(fontNamed: "Arial-BoldMT")
     
-    let scoreLabel = UILabel()
-    let upgradeButton = UIButton(type: .system)
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+    override func didMove(to view: SKView) {
+        backgroundColor = .black
+        physicsWorld.gravity = CGVector(dx: 0, dy: -9.8)
         
-        scoreLabel.frame = CGRect(x: 0, y: 150, width: view.frame.width, height: 60)
-        scoreLabel.textAlignment = .center
-        scoreLabel.font = .systemFont(ofSize: 50, weight: .bold)
-        scoreLabel.text = "\(score)"
-        view.addSubview(scoreLabel)
+        // Межі екрану
+        let borderBody = SKPhysicsBody(edgeLoopFrom: self.frame)
+        self.physicsBody = borderBody
         
-        let clickButton = UIButton(frame: CGRect(x: (view.frame.width - 200)/2, y: 300, width: 200, height: 200))
-        clickButton.backgroundColor = .systemBlue
-        clickButton.setTitle("TAP!", for: .normal)
-        clickButton.titleLabel?.font = .boldSystemFont(ofSize: 30)
-        clickButton.layer.cornerRadius = 100
-        clickButton.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
-        view.addSubview(clickButton)
+        // Рахунок
+        scoreLabel.text = "Score: 0"
+        scoreLabel.fontSize = 40
+        scoreLabel.position = CGPoint(x: frame.midX, y: frame.height - 100)
+        scoreLabel.zPosition = 10
+        addChild(scoreLabel)
         
-        upgradeButton.frame = CGRect(x: 50, y: 550, width: view.frame.width - 100, height: 60)
-        upgradeButton.backgroundColor = .systemGreen
-        upgradeButton.setTitleColor(.white, for: .normal)
-        upgradeButton.setTitle("Upgrade (+1) - Cost: \(upgradeCost)", for: .normal)
-        upgradeButton.layer.cornerRadius = 15
-        upgradeButton.addTarget(self, action: #selector(handleUpgrade), for: .touchUpInside)
-        view.addSubview(upgradeButton)
+        // Поява кнопок
+        let spawn = SKAction.run { [weak self] in self?.createButton() }
+        let wait = SKAction.wait(forDuration: 1.2)
+        run(SKAction.repeatForever(SKAction.sequence([spawn, wait])))
     }
     
-    @objc func handleTap() {
-        score += clickPower
-        scoreLabel.text = "\(score)"
+    func createButton() {
+        let size = CGSize(width: 80, height: 80)
+        let button = SKShapeNode(rectOf: size, cornerRadius: 15)
+        button.fillColor = .systemRed
+        button.position = CGPoint(x: CGFloat.random(in: 50...frame.width-50), y: frame.height + 50)
+        button.name = "target"
+        
+        let body = SKPhysicsBody(rectangleOf: size)
+        body.allowsRotation = true
+        body.restitution = 0.5
+        button.physicsBody = body
+        
+        addChild(button)
     }
     
-    @objc func handleUpgrade() {
-        if score >= upgradeCost {
-            score -= upgradeCost
-            clickPower += 1
-            upgradeCost *= 3 
-            scoreLabel.text = "\(score)"
-            upgradeButton.setTitle("Upgrade (+1) - Cost: \(upgradeCost)", for: .normal)
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let tappedNodes = nodes(at: location)
+        
+        for node in tappedNodes where node.name == "target" {
+            score += 1
+            scoreLabel.text = "Score: \(score)"
+            AudioServicesPlaySystemSound(1519)
+            node.removeFromParent()
         }
     }
 }
 
-autoreleasepool {
-    UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(ViewController.self))
+// --- КОНТРОЛЕР ---
+class GameViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let skView = SKView(frame: view.frame)
+        view.addSubview(skView)
+        let scene = GameScene(size: view.frame.size)
+        scene.scaleMode = .aspectFill
+        skView.presentScene(scene)
+    }
 }
+
+// --- ДЕЛЕГАТ ДОДАТКА ---
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        window = UIWindow(frame: UIScreen.main.bounds)
+        window?.rootViewController = GameViewController()
+        window?.makeKeyAndVisible()
+        return true
+    }
+}
+
+// --- ЗАПУСК (Тільки для main.swift) ---
+UIApplicationMain(
+    CommandLine.argc,
+    CommandLine.unsafeArgv,
+    nil,
+    NSStringFromClass(AppDelegate.self)
+)
