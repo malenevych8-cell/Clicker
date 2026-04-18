@@ -8,7 +8,6 @@ jobs:
       - name: Compile
         run: |
           mkdir -p ClickerApp.app
-          # Команда компіляції з підтримкою нових версій iOS
           xcrun -sdk iphoneos swiftc main.swift -o ClickerApp.app/ClickerApp -target arm64-apple-ios14.0 -Xlinker -rpath -Xlinker /usr/lib/swift
           cp Info.plist ClickerApp.app/Info.plist
           mkdir Payload
